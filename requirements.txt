@@ -1,0 +1,5 @@
+wolframalpha
+numpy
+pandas
+sympy
+scipy
