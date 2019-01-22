@@ -2,7 +2,7 @@ from utils import solve_eq_string, is_same_result, get_real_answer, is_number
 import pandas as pd
 from text_to_template import number_parsing, test_number_parsing
 from keras.layers.embeddings import Embedding
-from keras.layers import Dense, Dropout, RepeatVector
+from keras.layers import Dense, Dropout, RepeatVector, Input
 from keras.layers import recurrent, Bidirectional, LSTM, TimeDistributed
 from keras.models import Sequential, Model
 from keras.layers import add
@@ -110,11 +110,14 @@ class EncoderDecoder_model(ExampleModel):
         self.compile()
 
     def build(self):
-        model = Sequential()
-        model.add(Bidirectional(LSTM(100, input_shape=(self.args['input_shape']))))
-        model.add(RepeatVector(...))
-        model.add(Bidirectional(LSTM(..., return_sequences=True)))
-        model.add(TimeDistributed(Dense(self.args['output_shape'])))
+        inputs = Input(shape=(self.args['input_shape'],))
+        encoder1 = Embedding(self.args['txt_vocab_size'], 128)(inputs)
+        encoder2 = LSTM(128)(encoder1)
+        encoder3 = RepeatVector(self.args['output_shape'])(encoder2)
+        # decoder output model
+        decoder1 = LSTM(128, return_sequences=True)(encoder3)
+        outputs = TimeDistributed(Dense(self.args['eqn_vocab_size'], activation='softmax'))(decoder1)
+        model = Model(inputs=inputs, outputs=outputs)
 
         return model
 

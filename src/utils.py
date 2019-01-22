@@ -160,28 +160,84 @@ def get_real_answer(problem):
     return solutions
 
 
-def get_vocabulary(df):
+def get_vocabulary(df, field_type):
     results = set()
-    df.str.lower().str.split().apply(results.update)
-    return results
+    if field_type == 'text':
+        df[field_type].str.lower().str.split().apply(results.update)
+    else:
+        df[field_type].str.lower().apply(results.update)
+    return dict((w, i + 1) for (i, w) in enumerate(results))
 
 
 def get_max(df, field_type):
-    df['amount'] = df[field_type].apply(lambda l: len(l))
-    return max(df['amount'])
+    if field_type == 'text':
+        df['length'] = df[field_type].str.split().apply(len)
+    else:
+        df['length'] = df[field_type].apply(len)
+    return max(df['length'])
 
 
 def get_clean_varsAndEqn(df):
-    df['clean_vars'] = df['equations'].apply(lambda l: l[0].replace('unkn: ',''))
+    df['clean_vars'] = df['equations'].apply(lambda l: l[0].replace('unkn: ', ''))
     df['clean_vars'] = df['clean_vars'].apply(lambda s: s.split(","))
 
     def clean_eqn(eqn_list):
         eqn_list = eqn_list[1:]
-        eqn_clean_list = [[]]
+        eqn_clean_list = []
         for eqn in eqn_list:
-            eqn_clean_list.append(list(eqn.replace('equ: ','')))
+            eqn_clean_list.append(eqn.replace('equ: ', ''))
         return eqn_clean_list
 
     df['clean_eqn'] = df['equations'].apply(clean_eqn)
     return df
 
+
+def get_varsAndEqn_str(df):
+    df['str_vars'] = df['equations'].apply(lambda l: l[0].replace('unkn: ', ''))
+
+    def str_eqn(eqn_list):
+        eqn_list = eqn_list[1:]
+        eqn_str = ''
+        for eqn in eqn_list:
+            if len(eqn_str) != 0:
+                eqn_str = eqn_str + ','
+            eqn_str = eqn_str + eqn.replace('equ: ', '')
+        return eqn_str
+
+    df['str_eqn'] = df['equations'].apply(str_eqn)
+    return df
+
+
+def pad_and_vectorize(df, txt_length, var_length, eqn_length,
+                      txt_vocab, var_vocab, eqn_vocab):
+    def complete_txt(txt):
+        vec_txt = np.zeros(txt_length)
+        counter = 0
+        for word in txt.lower().split():
+            vec_txt[counter] = txt_vocab[word]
+            counter += 1
+        return vec_txt
+
+    df['X'] = df['text'].apply(complete_txt)
+
+    def create_y(row):
+        vec_var = np.zeros(var_length)
+        counter = 0
+        for c in row['str_vars'].lower():
+            vec_var[counter] = var_vocab[c]
+            counter += 1
+
+        vec_eqn = np.zeros(eqn_length)
+        counter = 0
+        for c in row['str_eqn'].lower():
+            vec_eqn[counter] = eqn_vocab[c]
+            counter += 1
+
+        num_vars = len(row['ans_simple'])
+        num_eqn = len(row['equations']) - 1
+
+        return np.array([num_vars] + list(vec_var) + [num_eqn] + list(vec_eqn))
+
+    df['y'] = df.apply(create_y, axis=1)
+
+    return df
