@@ -2,19 +2,21 @@ from typing import List
 
 import wolframalpha
 from sympy.parsing.sympy_parser import parse_expr
-from sympy.parsing.sympy_parser import standard_transformations, convert_xor,implicit_multiplication
+from sympy.parsing.sympy_parser import standard_transformations, convert_xor, implicit_multiplication
 from sympy import Symbol
 from sympy.solvers import solve
 from numpy import *
 import numpy as np
+import re
 
-IS_NUM_DICT = ['integer','consecutive']
-TRANSFORMATION = standard_transformations + (implicit_multiplication,convert_xor,)
+IS_NUM_DICT = ['integer', 'consecutive']
+TRANSFORMATION = standard_transformations + (implicit_multiplication, convert_xor,)
 WOLF_CLIENT = wolframalpha.Client(app_id="23XUAT-H2875HHEEX")
+
 
 # region Utilities
 
-def solve_with_wolfram(input_str:str):
+def solve_with_wolfram(input_str: str):
     sol_wolfram = WOLF_CLIENT.query(input_str.split('equ: ')[-1].replace(' ', ''))
     if 'Solutions' in sol_wolfram.details:
         sol_wolf = sol_wolfram.details['Solutions']
@@ -28,7 +30,8 @@ def solve_with_wolfram(input_str:str):
         return []
 
     results = [result.split('=') for result in sol_wolf.replace(' ', '').split(',')]
-    return {k: float(eval(v)) for k,v in results}
+    return {k: float(eval(v)) for k, v in results}
+
 
 def solve_eq_string(math_eq_format: List[str], integer_flag=False):
     """
@@ -40,7 +43,7 @@ def solve_eq_string(math_eq_format: List[str], integer_flag=False):
     """
     kw_parser = dict(evaluate=True, transformations=TRANSFORMATION)
     do_wolfram = use_wolfram(math_eq_format[1:])
-    var_str = math_eq_format[0].replace(' ','').split('unkn:')[-1]
+    var_str = math_eq_format[0].replace(' ', '').split('unkn:')[-1]
     sym_var = tuple()
 
     for v in var_str.split(','):
@@ -51,20 +54,20 @@ def solve_eq_string(math_eq_format: List[str], integer_flag=False):
         parse_eq_list = []
         for eq in math_eq_format[1:]:
             # remove whitespaces and move to onesided equation
-            rhs,lhs = eq.split('equ:')[-1].replace(' ','').split('=')
+            rhs, lhs = eq.split('equ:')[-1].replace(' ', '').split('=')
             parse_eq_list += [parse_expr(lhs, **kw_parser) * -1 + parse_expr(rhs, **kw_parser)]
 
-        if len(sym_var)<=3 and '^' not in ';'.join(math_eq_format[1:]).replace('equ:','').replace(' ',''):
+        if len(sym_var) <= 3 and '^' not in ';'.join(math_eq_format[1:]).replace('equ:', '').replace(' ', ''):
             sol = solve(parse_eq_list)
             if sol == []:
                 do_wolfram = True
         else:
             do_wolfram = True
     if do_wolfram:
-        eq_wolf_format = ';'.join(math_eq_format[1:]).replace('equ:','').replace(' ','')
+        eq_wolf_format = ';'.join(math_eq_format[1:]).replace('equ:', '').replace(' ', '')
         sol = solve_with_wolfram(eq_wolf_format)
 
-    if isinstance(sol,dict):
+    if isinstance(sol, dict):
         eval_sol = [parse_expr(v, **kw_parser).evalf(subs=dict(sol)) for v in var_str.split(',')]
         if sol == []:
             return []
@@ -72,29 +75,32 @@ def solve_eq_string(math_eq_format: List[str], integer_flag=False):
             return []
         else:
             return eval_sol
-    elif isinstance(sol,list):
+    elif isinstance(sol, list):
         eval_sol = []
         for cur_sol in sol:
             eval_itr = [parse_expr(v, **kw_parser).evalf(subs=cur_sol) for v in var_str.split(',')]
             if sol == []:
                 continue
-            elif integer_flag and not all([y.is_integer for x,y in cur_sol.items() if y.is_number]):
+            elif integer_flag and not all([y.is_integer for x, y in cur_sol.items() if y.is_number]):
                 continue
             else:
                 eval_sol += [eval_itr]
         return eval_sol
 
+
 def sparse_binary_jaccard(v1, v2):
     v1_nz = set(v1.nonzero()[1])
     v2_nz = set(v2.nonzero()[1])
-    return len(v1_nz.intersection(v2_nz))/len(v1_nz.union(v2_nz))
+    return len(v1_nz.intersection(v2_nz)) / len(v1_nz.union(v2_nz))
 
-def is_number(query_text:str):
+
+def is_number(query_text: str):
     query_text = query_text.lower()
     if any([t in query_text for t in IS_NUM_DICT]):
         return True
     else:
         return False
+
 
 def parse_ans_col(ans: str):
     if ans == 'ans_no_result':
@@ -103,6 +109,8 @@ def parse_ans_col(ans: str):
         ans.replace
         if '|' not in ans:
             pass
+
+
 # endregion
 
 def is_same_result(real_ans, pred_ans):
@@ -117,13 +125,15 @@ def is_same_result(real_ans, pred_ans):
                 return True
     return False
 
-def are_close(l1,l2):
+
+def are_close(l1, l2):
     try:
-        res = len(l1) == len(l2) and np.allclose(np.sort(l1).astype(float), np.sort(l2).astype(float),rtol=0.001)
+        res = len(l1) == len(l2) and np.allclose(np.sort(l1).astype(float), np.sort(l2).astype(float), rtol=0.001)
         return res
     except Exception as e:
-        #print(e)
+        # print(e)
         return False
+
 
 def use_wolfram(equations):
     use_wolfram = False
@@ -148,3 +158,30 @@ def get_real_answer(problem):
         solutions = [problem['ans_simple']]
 
     return solutions
+
+
+def get_vocabulary(df):
+    results = set()
+    df.str.lower().str.split().apply(results.update)
+    return results
+
+
+def get_max(df, field_type):
+    df['amount'] = df[field_type].apply(lambda l: len(l))
+    return max(df['amount'])
+
+
+def get_clean_varsAndEqn(df):
+    df['clean_vars'] = df['equations'].apply(lambda l: l[0].replace('unkn: ',''))
+    df['clean_vars'] = df['clean_vars'].apply(lambda s: s.split(","))
+
+    def clean_eqn(eqn_list):
+        eqn_list = eqn_list[1:]
+        eqn_clean_list = [[]]
+        for eqn in eqn_list:
+            eqn_clean_list.append(list(eqn.replace('equ: ','')))
+        return eqn_clean_list
+
+    df['clean_eqn'] = df['equations'].apply(clean_eqn)
+    return df
+

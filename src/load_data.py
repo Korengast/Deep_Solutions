@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 
-ALL_DATA_PATH = r"..\data\additional_train_data\AllData.json"
+ALL_DATA_PATH = "data\\additional_train_data\\AllData.json"
 
 def to_numeric_results(ans_list):
     return [float(x) for x in ans_list]
