@@ -31,14 +31,13 @@ txt_length = get_max(train_dev, 'text')
 var_length = get_max(train_dev, 'str_vars')
 eqn_length = get_max(train_dev, 'str_eqn')
 
-txt_vocab = get_vocabulary(train_dev, 'text')
-var_vocab = get_vocabulary(train_dev, 'str_vars')
-eqn_vocab = get_vocabulary(train_dev, 'str_eqn')
+txt_vocab = get_vocabulary(train_dev, is_text=True)
+eqn_vocab = get_vocabulary(train_dev, is_text=False)
 
 train_data = pad_and_vectorize(train_data, txt_length, var_length,
-                               eqn_length, txt_vocab, var_vocab, eqn_vocab)
+                               eqn_length, txt_vocab, eqn_vocab)
 dev_data = pad_and_vectorize(dev_data, txt_length, var_length,
-                             eqn_length, txt_vocab, var_vocab, eqn_vocab)
+                             eqn_length, txt_vocab, eqn_vocab)
 
 """
 train_dev = get_clean_varsAndEqn(train_data.append(dev_data, sort=False))
@@ -66,16 +65,20 @@ max_vars = get_max(train_dev, 'clean_vars')
 max_eqn = get_max(train_dev, 'clean_eqn')
 """
 
-input_shape = (txt_length,)
-output_shape = (2+var_length+eqn_length,)
-# TODO:
-# Merge eqn and var vocabularies!
-txt_vocab_size = ...
-eqn_vocab_size = ...
+input_shape = txt_length
+output_shape = 2+var_length+eqn_length
+txt_vocab_size = len(txt_vocab)
+eqn_vocab_size = len(eqn_vocab)
 
 model = EncoderDecoder_model(input_shape=input_shape, output_shape=output_shape,
-                             txt_vocab_size=txt_vocab_size, eqn_vocab_size=eqn_vocab_size)
-model.fit(...)
+                             txt_vocab_size=txt_vocab_size, eqn_vocab_size=eqn_vocab_size,
+                             var_length=var_length, eqn_vocab=eqn_vocab)
+
+demo_train = dev_data.iloc[0:10]
+model.fit(demo_train)
+
+preds = model.predict(demo_train)
+
 
 ## print evaluation result
 print(f'result score on train: {model.score(math_train,frac=0.1,verbose=False,use_ans=True)}')

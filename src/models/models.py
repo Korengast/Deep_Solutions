@@ -3,11 +3,12 @@ import pandas as pd
 from text_to_template import number_parsing, test_number_parsing
 from keras.layers.embeddings import Embedding
 from keras.layers import Dense, Dropout, RepeatVector, Input
-from keras.layers import recurrent, Bidirectional, LSTM, TimeDistributed
+from keras.layers import recurrent, Bidirectional, LSTM, TimeDistributed, Flatten
 from keras.models import Sequential, Model
+from keras.utils import to_categorical
+import numpy as np
 from keras.layers import add
 from keras.preprocessing.sequence import pad_sequences
-from collections import OrderedDict
 from keras.models import model_from_json
 
 
@@ -107,16 +108,20 @@ class EncoderDecoder_model(ExampleModel):
         super(EncoderDecoder_model, self).__init__(**kwargs)
         self.args = kwargs
         self.model = self.build()
+        print(self.model.summary())
         self.compile()
 
     def build(self):
         inputs = Input(shape=(self.args['input_shape'],))
+        # outputs = Dense(self.args['output_shape'], activation='softmax')(inputs)
         encoder1 = Embedding(self.args['txt_vocab_size'], 128)(inputs)
-        encoder2 = LSTM(128)(encoder1)
+        encoder2 = Bidirectional(LSTM(128))(encoder1)
         encoder3 = RepeatVector(self.args['output_shape'])(encoder2)
         # decoder output model
         decoder1 = LSTM(128, return_sequences=True)(encoder3)
+        # outputs = Dense(self.args['eqn_vocab_size'], activation='softmax')(decoder1)
         outputs = TimeDistributed(Dense(self.args['eqn_vocab_size'], activation='softmax'))(decoder1)
+
         model = Model(inputs=inputs, outputs=outputs)
 
         return model
@@ -127,7 +132,38 @@ class EncoderDecoder_model(ExampleModel):
                            metrics=['accuracy'])
 
     def fit(self, df, y=None):
-        df['vars'] = df['ans_simple'].apply(lambda row: len(row))
-        df['padded_ans'] = df['ans_simple'].apply(lambda row: (row+(max_vars-len(row))*[0][:(max_vars-len(row))]))
-        df['full_ans'] = df.apply(lambda row: [row['vars']]+row['padded_ans'], axis=1)
+        X = np.vstack(df['X'])
+        y = to_categorical(np.vstack(df['y']), self.args['eqn_vocab_size'])
+        self.model.fit(x=X, y=y, epochs=100)
+
+    def predict(self, df):
+        X = np.vstack(df['X'])
+        pred_matrix = self.model.predict(X)
+        var_col = []
+        eqn_col = []
+
+        def get_value_from_vocab(arr):
+            eqn_reversed_vocab = dict(zip(self.args['eqn_vocab'].values(), self.args['eqn_vocab'].keys()))
+            l = []
+            for a in arr:
+                if a!=0:
+                    l.append(eqn_reversed_vocab[a])
+                else:
+                    l.append(None)
+            return l
+
+        for i in range(pred_matrix.shape[0]):
+            p = pred_matrix[i,:,:]
+            p_vec = np.argmax(p,axis=1)
+            len_var = p_vec[0]
+            len_eqn = p_vec[1+self.args['var_length']]
+
+            p_val = get_value_from_vocab(p_vec)
+            var_vec = p_val[1:1+len_var]
+            eqn_vec = p_val[2+len_var:2+len_var+len_eqn]
+            var_col.append(var_vec)
+            eqn_col.append(eqn_vec)
+
+
+        return pd.DataFrame({'var': var_col, 'eqn': eqn_col})
 

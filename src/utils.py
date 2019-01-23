@@ -8,6 +8,7 @@ from sympy.solvers import solve
 from numpy import *
 import numpy as np
 import re
+from collections import OrderedDict
 
 IS_NUM_DICT = ['integer', 'consecutive']
 TRANSFORMATION = standard_transformations + (implicit_multiplication, convert_xor,)
@@ -160,12 +161,13 @@ def get_real_answer(problem):
     return solutions
 
 
-def get_vocabulary(df, field_type):
+def get_vocabulary(df, is_text=True):
     results = set()
-    if field_type == 'text':
-        df[field_type].str.lower().str.split().apply(results.update)
+    if is_text:
+        df['text'].str.lower().str.split().apply(results.update)
     else:
-        df[field_type].str.lower().apply(results.update)
+        df['str_vars'].str.lower().apply(results.update)
+        df['str_eqn'].str.lower().apply(results.update)
     return dict((w, i + 1) for (i, w) in enumerate(results))
 
 
@@ -209,7 +211,7 @@ def get_varsAndEqn_str(df):
 
 
 def pad_and_vectorize(df, txt_length, var_length, eqn_length,
-                      txt_vocab, var_vocab, eqn_vocab):
+                      txt_vocab, eqn_vocab):
     def complete_txt(txt):
         vec_txt = np.zeros(txt_length)
         counter = 0
@@ -224,7 +226,7 @@ def pad_and_vectorize(df, txt_length, var_length, eqn_length,
         vec_var = np.zeros(var_length)
         counter = 0
         for c in row['str_vars'].lower():
-            vec_var[counter] = var_vocab[c]
+            vec_var[counter] = eqn_vocab[c]
             counter += 1
 
         vec_eqn = np.zeros(eqn_length)
