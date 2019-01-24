@@ -65,6 +65,7 @@ class ExampleModel():
             return correct / total
 
 
+"""
 class DiltonModel(ExampleModel):
     def __init__(self, **kwargs):
         super(DiltonModel, self).__init__(**kwargs)
@@ -103,6 +104,8 @@ class DiltonModel(ExampleModel):
         df['padded_ans'] = df['ans_simple'].apply(lambda row: (row+(max_vars-len(row))*[0][:(max_vars-len(row))]))
         df['full_ans'] = df.apply(lambda row: [row['vars']]+row['padded_ans'], axis=1)
 
+"""
+
 class EncoderDecoder_model(ExampleModel):
     def __init__(self, **kwargs):
         super(EncoderDecoder_model, self).__init__(**kwargs)
@@ -113,14 +116,12 @@ class EncoderDecoder_model(ExampleModel):
 
     def build(self):
         inputs = Input(shape=(self.args['input_shape'],))
-        # outputs = Dense(self.args['output_shape'], activation='softmax')(inputs)
-        encoder1 = Embedding(self.args['txt_vocab_size'], 128)(inputs)
+        encoder1 = Embedding(self.args['txt_vocab_size']+1, 128)(inputs)
         encoder2 = Bidirectional(LSTM(128))(encoder1)
         encoder3 = RepeatVector(self.args['output_shape'])(encoder2)
         # decoder output model
         decoder1 = LSTM(128, return_sequences=True)(encoder3)
-        # outputs = Dense(self.args['eqn_vocab_size'], activation='softmax')(decoder1)
-        outputs = TimeDistributed(Dense(self.args['eqn_vocab_size'], activation='softmax'))(decoder1)
+        outputs = TimeDistributed(Dense(self.args['eqn_vocab_size']+1, activation='softmax'))(decoder1)
 
         model = Model(inputs=inputs, outputs=outputs)
 
@@ -131,10 +132,16 @@ class EncoderDecoder_model(ExampleModel):
                            loss='categorical_crossentropy',
                            metrics=['accuracy'])
 
-    def fit(self, df, y=None):
+    def fit(self, df, y=None, dev_data=None):
         X = np.vstack(df['X'])
-        y = to_categorical(np.vstack(df['y']), self.args['eqn_vocab_size'])
-        self.model.fit(x=X, y=y, epochs=100)
+        y = to_categorical(np.vstack(df['y']), self.args['eqn_vocab_size']+1)
+        if dev_data is None:
+            self.model.fit(x=X, y=y, epochs=self.args['epochs'], batch_size=self.args['batc_size'])
+        else:
+            X_dev = np.vstack(dev_data['X'])
+            y_dev = to_categorical(np.vstack(dev_data['y']), self.args['eqn_vocab_size'] + 1)
+            self.model.fit(x=X, y=y, epochs=self.args['epochs'], batch_size=self.args['batch_size'],
+                           validation_data=(X_dev, y_dev))
 
     def predict(self, df):
         X = np.vstack(df['X'])
@@ -164,6 +171,10 @@ class EncoderDecoder_model(ExampleModel):
             var_col.append(var_vec)
             eqn_col.append(eqn_vec)
 
+        preds = pd.DataFrame({'var': var_col, 'eqn': eqn_col})
+        # preds['equations'] = preds.apply()
 
-        return pd.DataFrame({'var': var_col, 'eqn': eqn_col})
+
+
+        return preds
 

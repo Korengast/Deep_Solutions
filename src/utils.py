@@ -215,8 +215,13 @@ def pad_and_vectorize(df, txt_length, var_length, eqn_length,
     def complete_txt(txt):
         vec_txt = np.zeros(txt_length)
         counter = 0
+        if len(txt)>txt_length:
+            txt = txt[-txt_length:]
         for word in txt.lower().split():
-            vec_txt[counter] = txt_vocab[word]
+            if word in txt_vocab.keys():
+                vec_txt[counter] = txt_vocab[word]
+            else:
+                vec_txt[counter] = 0
             counter += 1
         return vec_txt
 
@@ -226,13 +231,19 @@ def pad_and_vectorize(df, txt_length, var_length, eqn_length,
         vec_var = np.zeros(var_length)
         counter = 0
         for c in row['str_vars'].lower():
-            vec_var[counter] = eqn_vocab[c]
+            if c in eqn_vocab.keys():
+                vec_var[counter] = eqn_vocab[c]
+            else:
+                vec_var[counter] = 0
             counter += 1
 
         vec_eqn = np.zeros(eqn_length)
         counter = 0
         for c in row['str_eqn'].lower():
-            vec_eqn[counter] = eqn_vocab[c]
+            if c in eqn_vocab.keys():
+                vec_eqn[counter] = eqn_vocab[c]
+            else:
+                vec_eqn[counter] = 0
             counter += 1
 
         num_vars = len(row['ans_simple'])
@@ -243,3 +254,17 @@ def pad_and_vectorize(df, txt_length, var_length, eqn_length,
     df['y'] = df.apply(create_y, axis=1)
 
     return df
+
+def to_wolfram_format(row):
+    if len(row['var']) == 0:
+        var_part = 'unkn: '
+    else:
+        var_part = 'unkn: '+row['var'][0]
+    if len(row['eqn'])==0:
+        eqn_part = ['equ: ']
+    else:
+        eqn_part = row['eqn'].split(",")
+        eqn_part = ['eqn: '+ e for e in eqn_part]
+    return [var_part] + eqn_part
+
+
