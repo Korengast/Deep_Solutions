@@ -1,15 +1,11 @@
 from utils import solve_eq_string, is_same_result, get_real_answer, is_number
 import pandas as pd
-from text_to_template import number_parsing, test_number_parsing
 from keras.layers.embeddings import Embedding
-from keras.layers import Dense, Dropout, RepeatVector, Input
-from keras.layers import recurrent, Bidirectional, LSTM, TimeDistributed, Flatten
-from keras.models import Sequential, Model
+from keras.layers import Dense, RepeatVector, Input
+from keras.layers import Bidirectional, LSTM, TimeDistributed
+from keras.models import Model
 from keras.utils import to_categorical
 import numpy as np
-from keras.layers import add
-from keras.preprocessing.sequence import pad_sequences
-from keras.models import model_from_json
 
 
 class ExampleModel():
@@ -106,6 +102,7 @@ class DiltonModel(ExampleModel):
 
 """
 
+
 class EncoderDecoder_model(ExampleModel):
     def __init__(self, **kwargs):
         super(EncoderDecoder_model, self).__init__(**kwargs)
@@ -116,12 +113,12 @@ class EncoderDecoder_model(ExampleModel):
 
     def build(self):
         inputs = Input(shape=(self.args['input_shape'],))
-        encoder1 = Embedding(self.args['txt_vocab_size']+1, 128)(inputs)
+        encoder1 = Embedding(self.args['txt_vocab_size'] + 1, 128)(inputs)
         encoder2 = Bidirectional(LSTM(128))(encoder1)
         encoder3 = RepeatVector(self.args['output_shape'])(encoder2)
         # decoder output model
         decoder1 = LSTM(128, return_sequences=True)(encoder3)
-        outputs = TimeDistributed(Dense(self.args['eqn_vocab_size']+1, activation='softmax'))(decoder1)
+        outputs = TimeDistributed(Dense(self.args['eqn_vocab_size'] + 1, activation='softmax'))(decoder1)
 
         model = Model(inputs=inputs, outputs=outputs)
 
@@ -134,7 +131,7 @@ class EncoderDecoder_model(ExampleModel):
 
     def fit(self, df, y=None, dev_data=None):
         X = np.vstack(df['X'])
-        y = to_categorical(np.vstack(df['y']), self.args['eqn_vocab_size']+1)
+        y = to_categorical(np.vstack(df['y']), self.args['eqn_vocab_size'] + 1)
         if dev_data is None:
             self.model.fit(x=X, y=y, epochs=self.args['epochs'], batch_size=self.args['batc_size'])
         else:
@@ -153,28 +150,24 @@ class EncoderDecoder_model(ExampleModel):
             eqn_reversed_vocab = dict(zip(self.args['eqn_vocab'].values(), self.args['eqn_vocab'].keys()))
             l = []
             for a in arr:
-                if a!=0:
+                if a != 0:
                     l.append(eqn_reversed_vocab[a])
                 else:
                     l.append(None)
             return l
 
         for i in range(pred_matrix.shape[0]):
-            p = pred_matrix[i,:,:]
-            p_vec = np.argmax(p,axis=1)
+            p = pred_matrix[i, :, :]
+            p_vec = np.argmax(p, axis=1)
             len_var = p_vec[0]
-            len_eqn = p_vec[1+self.args['var_length']]
+            len_eqn = p_vec[1 + self.args['var_length']]
 
             p_val = get_value_from_vocab(p_vec)
-            var_vec = p_val[1:1+len_var]
-            eqn_vec = p_val[2+len_var:2+len_var+len_eqn]
+            var_vec = p_val[1:1 + len_var]
+            eqn_vec = p_val[2 + len_var:2 + len_var + len_eqn]
             var_col.append(var_vec)
             eqn_col.append(eqn_vec)
 
         preds = pd.DataFrame({'var': var_col, 'eqn': eqn_col})
-        # preds['equations'] = preds.apply()
-
-
 
         return preds
-

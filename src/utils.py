@@ -7,8 +7,6 @@ from sympy import Symbol
 from sympy.solvers import solve
 from numpy import *
 import numpy as np
-import re
-from collections import OrderedDict
 
 IS_NUM_DICT = ['integer', 'consecutive']
 TRANSFORMATION = standard_transformations + (implicit_multiplication, convert_xor,)
@@ -162,6 +160,15 @@ def get_real_answer(problem):
 
 
 def get_vocabulary(df, is_text=True):
+    """
+    :param df:
+    :param is_text:
+    :return: dict
+
+    This function returns a dict as a vocabulary.
+    For text, each word is a value in the vocabulary,
+    for equations, each char is a value in the vocabulary
+    """
     results = set()
     if is_text:
         df['text'].str.lower().str.split().apply(results.update)
@@ -172,6 +179,12 @@ def get_vocabulary(df, is_text=True):
 
 
 def get_max(df, field_type):
+    """
+
+    :param df:
+    :param field_type:
+    :return: The maximal length of text or equation in the df
+    """
     if field_type == 'text':
         df['length'] = df[field_type].str.split().apply(len)
     else:
@@ -179,22 +192,12 @@ def get_max(df, field_type):
     return max(df['length'])
 
 
-def get_clean_varsAndEqn(df):
-    df['clean_vars'] = df['equations'].apply(lambda l: l[0].replace('unkn: ', ''))
-    df['clean_vars'] = df['clean_vars'].apply(lambda s: s.split(","))
-
-    def clean_eqn(eqn_list):
-        eqn_list = eqn_list[1:]
-        eqn_clean_list = []
-        for eqn in eqn_list:
-            eqn_clean_list.append(eqn.replace('equ: ', ''))
-        return eqn_clean_list
-
-    df['clean_eqn'] = df['equations'].apply(clean_eqn)
-    return df
-
-
 def get_varsAndEqn_str(df):
+    """
+
+    :param df:
+    :return: Vars and equations as one string separated by commas
+    """
     df['str_vars'] = df['equations'].apply(lambda l: l[0].replace('unkn: ', ''))
 
     def str_eqn(eqn_list):
@@ -212,6 +215,16 @@ def get_varsAndEqn_str(df):
 
 def pad_and_vectorize(df, txt_length, var_length, eqn_length,
                       txt_vocab, eqn_vocab):
+    """
+
+    :param df:
+    :param txt_length:
+    :param var_length:
+    :param eqn_length:
+    :param txt_vocab:
+    :param eqn_vocab:
+    :return: X and y as vectorized and padded text (X) and equations (y)
+    """
     def complete_txt(txt):
         vec_txt = np.zeros(txt_length)
         counter = 0
@@ -256,6 +269,11 @@ def pad_and_vectorize(df, txt_length, var_length, eqn_length,
     return df
 
 def to_wolfram_format(row):
+    """
+
+    :param row:
+    :return: The predictions in a format could be solve using wolframalpha package
+    """
     if len(row['var']) == 0:
         var_part = 'unkn: '
     else:
